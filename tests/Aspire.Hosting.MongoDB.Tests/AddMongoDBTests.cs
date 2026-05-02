@@ -268,7 +268,7 @@ public class AddMongoDBTests(ITestOutputHelper testOutputHelper)
     {
         var builder = DistributedApplication.CreateBuilder();
         var mongo = builder.AddMongoDB("mongodb").WithReplicaSet();
-        var args = await mongo.Resource.GetArgumentValuesAsync(DistributedApplicationOperation.Run);
+        var args = await ArgumentEvaluator.GetArgumentListAsync(mongo.Resource);
         Assert.Contains("--replSet", args);
         Assert.Contains("rs0", args);
         Assert.Contains("--keyFile", args);
@@ -334,11 +334,13 @@ public class AddMongoDBTests(ITestOutputHelper testOutputHelper)
     [Fact]
     public void WithReplicaSetServerConnectionStringIncludesDirectConnectionWithoutAuth()
     {
-        var resource = new MongoDBServerResource("mongodb");
-        resource.ReplicaSetName = "rs0";
-
-        Assert.Contains("?directConnection=true", resource.ConnectionStringExpression.ValueExpression);
-        Assert.DoesNotContain("&directConnection=true", resource.ConnectionStringExpression.ValueExpression);
+        // Use AddResource to create a resource without a password so we can verify
+        // the '?' separator (no auth query string prefix) rather than '&'.
+        var appBuilder = DistributedApplication.CreateBuilder();
+        var mongo = appBuilder.AddResource(new MongoDBServerResource("mongodb")).WithReplicaSet();
+        // No password configured → directConnection is appended with '?' not '&'
+        Assert.Contains("?directConnection=true", mongo.Resource.ConnectionStringExpression.ValueExpression);
+        Assert.DoesNotContain("&directConnection=true", mongo.Resource.ConnectionStringExpression.ValueExpression);
     }
 
     [Fact]
